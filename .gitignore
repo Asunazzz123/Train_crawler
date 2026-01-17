@@ -1,0 +1,5 @@
+.vscode
+node_modules/
+log/
+__pycache__/
+remark.md
