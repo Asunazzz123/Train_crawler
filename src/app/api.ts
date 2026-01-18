@@ -8,6 +8,7 @@ export interface SearchParams {
   askTime: number;
   strictmode: boolean;
   seatType: string;
+  autoMonitor?: boolean; // 无票时是否自动监控
 }
 
 export interface TrainInfoInput {
@@ -20,9 +21,12 @@ export interface TrainInfoInput {
 export interface TrainTicketParams{
   date: string;
   trainCode: string;
+  departure: string;
+  destination: string;
   studentTicket: boolean;
   askTime: number;
   seatType?: string;
+  autoMonitor?: boolean; // 无票时是否自动监控
 }
 export interface TrainTicketInput{
   onSearch: (params: TrainTicketParams) => void;
@@ -99,6 +103,8 @@ export const stopTrainCodeCrawler = async (params: TrainTicketParams): Promise<b
       },
       body: JSON.stringify({
         trainCode: params.trainCode,
+        departure: params.departure,
+        destination: params.destination,
         date: params.date,
         studentTicket: params.studentTicket,
       }),
@@ -113,7 +119,7 @@ export const stopTrainCodeCrawler = async (params: TrainTicketParams): Promise<b
 };
 
 // Fetch train info by train code (SSE)
-export const fetchTrainByCode = (params: TrainTicketParams, onData: (tickets: TrainTicket[]) => void) => {
+export const fetchTrainByCode = (params: TrainTicketParams, onData: (tickets: TrainTicket[], noDataFlag?: boolean) => void) => {
   const url = new URL(`${BASE_URL}/receive_by_code`);
   
   // Append params
@@ -141,6 +147,13 @@ export const fetchTrainByCode = (params: TrainTicketParams, onData: (tickets: Tr
         return;
       }
       
+      // Check for __NO_DATA__ marker from server
+      if (raw.startsWith('{') && raw.includes('__NO_DATA__')) {
+        console.log('SSE (TrainCode): Received __NO_DATA__ marker');
+        onData([], true); // noDataFlag = true
+        return;
+      }
+      
       // Check for error message from server
       if (raw.startsWith('{') && raw.includes('error')) {
         const errorData = JSON.parse(raw);
@@ -156,8 +169,8 @@ export const fetchTrainByCode = (params: TrainTicketParams, onData: (tickets: Tr
       
       if (Array.isArray(data)) {
         if (data.length === 0) {
-          console.log('SSE (TrainCode): Backend returned empty array (no trains found)');
-          onData([]);
+          console.log('SSE (TrainCode): Backend returned empty array (no tickets for this train)');
+          onData([], false); // 有数据但无票
           return;
         }
         
@@ -165,9 +178,10 @@ export const fetchTrainByCode = (params: TrainTicketParams, onData: (tickets: Tr
         console.log('SSE (TrainCode): Converted to tickets:', tickets.length);
         
         if (tickets.length > 0) {
-          onData(tickets);
+          onData(tickets, false);
         } else {
           console.warn('SSE (TrainCode): No tickets after conversion');
+          onData([], false);
         }
       }
     } catch (error) {
@@ -216,7 +230,7 @@ export const stopCrawler = async (params: SearchParams): Promise<boolean> => {
   }
 };
 
-export const fetchTrainInfo = (params: SearchParams, onData: (tickets: TrainTicket[]) => void) => {
+export const fetchTrainInfo = (params: SearchParams, onData: (tickets: TrainTicket[], noDataFlag?: boolean) => void) => {
   const url = new URL(`${BASE_URL}/receive`);
   
   // Append params
@@ -244,6 +258,13 @@ export const fetchTrainInfo = (params: SearchParams, onData: (tickets: TrainTick
         return;
       }
       
+      // Check for __NO_DATA__ marker from server
+      if (raw.startsWith('{') && raw.includes('__NO_DATA__')) {
+        console.log('SSE: Received __NO_DATA__ marker');
+        onData([], true); // noDataFlag = true
+        return;
+      }
+      
       // Check for error message from server
       if (raw.startsWith('{') && raw.includes('error')) {
         const errorData = JSON.parse(raw);
@@ -258,10 +279,10 @@ export const fetchTrainInfo = (params: SearchParams, onData: (tickets: TrainTick
       console.log('SSE: Parsed data array length:', data.length);
       
       if (Array.isArray(data)) {
-        // 如果后端明确返回空数组，表示真的没有查到车次
+        // 如果后端明确返回空数组，表示有数据但无票
         if (data.length === 0) {
-          console.log('SSE: Backend returned empty array (no trains found), notifying frontend');
-          onData([]);
+          console.log('SSE: Backend returned empty array (no tickets found), notifying frontend');
+          onData([], false);
           return;
         }
         
@@ -270,9 +291,10 @@ export const fetchTrainInfo = (params: SearchParams, onData: (tickets: TrainTick
         
         // 只有转换后有数据才通知前端，避免过滤导致的空结果触发停止
         if (tickets.length > 0) {
-          onData(tickets);
+          onData(tickets, false);
         } else {
           console.warn('SSE: No tickets after conversion, raw data had', data.length, 'items (possibly filtered out)');
+          onData([], false);
         }
       }
     } catch (error) {

@@ -15,6 +15,8 @@ import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 interface TrainCodeResultsTableProps {
   trains: TrainTicket[];
   isLoading?: boolean;
+  isMonitoring?: boolean;
+  isNoData?: boolean; // __NO_DATA__ 标识
   searchParams?: TrainTicketParams;
   lastUpdateTime?: Date | null;
 }
@@ -169,7 +171,7 @@ function CollapsibleTrainRow({ group }: { group: GroupedTrainData }) {
   );
 }
 
-export function TrainCodeResultsTable({ trains, isLoading, searchParams, lastUpdateTime }: TrainCodeResultsTableProps) {
+export function TrainCodeResultsTable({ trains, isLoading, isMonitoring, isNoData, searchParams, lastUpdateTime }: TrainCodeResultsTableProps) {
   const askTime = searchParams?.askTime || 10;
   const selectedSeatType = searchParams?.seatType;
   
@@ -210,9 +212,25 @@ export function TrainCodeResultsTable({ trains, isLoading, searchParams, lastUpd
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="text-muted-foreground">
-              未找到车次。请尝试其他搜索条件。
-            </div>
+            {isNoData ? (
+              <div className="text-muted-foreground">
+                未找到车次。请尝试其他搜索条件。
+              </div>
+            ) : isMonitoring ? (
+              <>
+                <div className="flex items-center mb-2">
+                  <RefreshCw className="h-5 w-5 animate-spin mr-2 text-orange-500" />
+                  <div className="text-orange-600 font-medium">当前车次没有车票，正在监控车票信息...</div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  每 {askTime} 秒刷新一次 {lastUpdateTime && `| 最后检查: ${lastUpdateTime.toLocaleTimeString('zh-CN')}`}
+                </div>
+              </>
+            ) : (
+              <div className="text-muted-foreground">
+                没有车票。
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -245,8 +263,7 @@ export function TrainCodeResultsTable({ trains, isLoading, searchParams, lastUpd
       </CardHeader>
       
       <CardContent>
-        {/* 调试标识 - 确认组件已加载 */}
-        <div className="mb-2 text-xs text-blue-500">TrainCodeResultsTable v2 - 分组数: {groupedTrains.length}</div>
+        
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

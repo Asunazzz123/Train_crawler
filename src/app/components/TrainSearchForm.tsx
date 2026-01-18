@@ -70,6 +70,7 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
   const [askTime, setAskTime] = useState(0);
   const [strictmode, setStrictmode] = useState(false);
   const [seatType, setSeatType] = useState('');
+  const [autoMonitor, setAutoMonitor] = useState(true); // 默认开启自动监控
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +88,8 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
       studentTicket,
       askTime,
       strictmode,
-      seatType
+      seatType,
+      autoMonitor,
     });
   };
 
@@ -212,6 +214,20 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
                 <p>启用后，搜索将严格匹配提供的站点名称，而不是城市名称。</p>
               </TooltipContent>
             </Tooltip>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="autoMonitor"
+              checked={autoMonitor}
+              onCheckedChange={(checked) => setAutoMonitor(checked as boolean)}
+            />
+            <Label
+              htmlFor="autoMonitor"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              无票时自动监控
+            </Label>
           </div>
         </div>
       </div>

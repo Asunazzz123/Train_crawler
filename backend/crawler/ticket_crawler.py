@@ -346,6 +346,7 @@ def start_polling_storage(from_station, to_station, date, is_student=False, is_h
             time.sleep(interval)
 
 
+
 if __name__ == "__main__":
     FROM_STATION = "东莞东"
     TO_STATION = "赣州"

@@ -15,6 +15,8 @@ import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 interface TrainResultsTableProps {
   trains: TrainTicket[];
   isLoading?: boolean;
+  isMonitoring?: boolean;
+  isNoData?: boolean; // __NO_DATA__ 标识
   searchParams?: SearchParams;
   lastUpdateTime?: Date | null;
 }
@@ -187,7 +189,7 @@ function CollapsibleTrainRow({ group, isHighSpeed }: { group: GroupedTrainData; 
   );
 }
 
-export function TrainResultsTable({ trains, isLoading, searchParams, lastUpdateTime }: TrainResultsTableProps) {
+export function TrainResultsTable({ trains, isLoading, isMonitoring, isNoData, searchParams, lastUpdateTime }: TrainResultsTableProps) {
   const askTime = searchParams?.askTime || 10;
   const isHighSpeed = searchParams?.highSpeed || false;
   const seatType = searchParams?.seatType || '';
@@ -233,9 +235,25 @@ export function TrainResultsTable({ trains, isLoading, searchParams, lastUpdateT
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="text-muted-foreground">
-              未找到车次。请尝试其他搜索条件。
-            </div>
+            {isNoData ? (
+              <div className="text-muted-foreground">
+                未找到车次。请尝试其他搜索条件。
+              </div>
+            ) : isMonitoring ? (
+              <>
+                <div className="flex items-center mb-2">
+                  <RefreshCw className="h-5 w-5 animate-spin mr-2 text-orange-500" />
+                  <div className="text-orange-600 font-medium">当前没有车票，正在监控车票信息...</div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  每 {askTime} 秒刷新一次 {lastUpdateTime && `| 最后检查: ${lastUpdateTime.toLocaleTimeString('zh-CN')}`}
+                </div>
+              </>
+            ) : (
+              <div className="text-muted-foreground">
+                没有车票。
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

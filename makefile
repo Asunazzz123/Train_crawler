@@ -1,6 +1,8 @@
 LOG_DIR := log
 
-
+install:
+	@npm install
+	
 build:
 	@npm run build
 ifeq ($(OS),Windows_NT)

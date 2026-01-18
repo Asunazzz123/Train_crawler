@@ -17,6 +17,8 @@ export default function App() {
   const [currentSearchParams, setCurrentSearchParams] = useState<SearchParams>();
   const [currentTrainCodeParams, setCurrentTrainCodeParams] = useState<TrainTicketParams>();
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  const [isMonitoring, setIsMonitoring] = useState(false); // ticket模式下，无票时的监控状态
+  const [isNoData, setIsNoData] = useState(false); // __NO_DATA__ 标识
   const cleanupRef = useRef<() => void>();
   const trainCodeCleanupRef = useRef<() => void>();
   useEffect(() => {
@@ -41,6 +43,8 @@ export default function App() {
     setHasSearched(true);
     setTrains([]);
     setLastUpdateTime(null);
+    setIsMonitoring(false);
+    setIsNoData(false);
 
     const searchParams: SearchParams = {
       ...params,
@@ -51,19 +55,20 @@ export default function App() {
     setCurrentSearchParams(searchParams);
 
     try {
-       const stop = fetchTrainInfo(searchParams, (newTickets) => {
+       const stop = fetchTrainInfo(searchParams, (newTickets, noDataFlag) => {
            setIsLoading(false); 
            
-           // 如果收到空数组，等待1秒后自动停止搜索
-           if (newTickets.length === 0) {
-             console.log('No trains found, stopping search in 1 second...');
+           // 检查是否是 __NO_DATA__ 标识
+           if (noDataFlag) {
+             console.log('Received __NO_DATA__ marker, no trains available for this route');
+             setIsNoData(true);
+             setIsMonitoring(false);
+             // 1秒后停止搜索
              setTimeout(async () => {
-               // Close SSE connection
                if (cleanupRef.current) {
                  cleanupRef.current();
                  cleanupRef.current = undefined;
                }
-               // Stop backend crawler
                if (searchParams) {
                  await stopCrawler(searchParams);
                }
@@ -72,8 +77,33 @@ export default function App() {
              return;
            }
            
-           // Replace tickets with new data (each SSE event is a fresh query result)
-           // This ensures we show the latest ticket availability instead of accumulating
+           // 如果收到空数组（有数据但无票）
+           if (newTickets.length === 0) {
+             // 根据 autoMonitor 参数决定是否继续监控
+             if (searchParams.autoMonitor !== false) {
+               console.log('No tickets found, continuing to monitor...');
+               setIsMonitoring(true);
+               setIsNoData(false);
+               setLastUpdateTime(new Date());
+             } else {
+               console.log('No tickets found, auto-monitor disabled, stopping in 1 second...');
+               setTimeout(async () => {
+                 if (cleanupRef.current) {
+                   cleanupRef.current();
+                   cleanupRef.current = undefined;
+                 }
+                 if (searchParams) {
+                   await stopCrawler(searchParams);
+                 }
+                 setIsSearching(false);
+               }, 1000);
+             }
+             return;
+           }
+           
+           // 有票时取消监控状态
+           setIsMonitoring(false);
+           setIsNoData(false);
            setTrains(newTickets);
            setLastUpdateTime(new Date());
        });
@@ -101,6 +131,8 @@ export default function App() {
     
     setIsLoading(false);
     setIsSearching(false);
+    setIsMonitoring(false);
+    setIsNoData(false);
   };
 
   // 车次号搜索处理函数
@@ -115,6 +147,8 @@ export default function App() {
     setHasSearched(true);
     setTrains([]);
     setLastUpdateTime(null);
+    setIsMonitoring(false);
+    setIsNoData(false);
 
     const searchParams: TrainTicketParams = {
       ...params,
@@ -123,11 +157,14 @@ export default function App() {
     setCurrentTrainCodeParams(searchParams);
 
     try {
-      const stop = fetchTrainByCode(searchParams, (newTickets) => {
+      const stop = fetchTrainByCode(searchParams, (newTickets, noDataFlag) => {
         setIsLoading(false);
         
-        if (newTickets.length === 0) {
-          console.log('No trains found for train code, stopping search in 1 second...');
+        // 检查是否是 __NO_DATA__ 标识
+        if (noDataFlag) {
+          console.log('Received __NO_DATA__ marker, no trains available for this route');
+          setIsNoData(true);
+          setIsMonitoring(false);
           setTimeout(async () => {
             if (trainCodeCleanupRef.current) {
               trainCodeCleanupRef.current();
@@ -141,6 +178,34 @@ export default function App() {
           return;
         }
         
+        if (newTickets.length === 0) {
+          // 根据autoMonitor参数决定是否继续监控
+          if (searchParams.autoMonitor !== false) {
+            // 开启自动监控：继续轮询
+            console.log('No tickets found for train code, continuing to monitor...');
+            setIsMonitoring(true);
+            setIsNoData(false);
+            setLastUpdateTime(new Date());
+          } else {
+            // 关闭自动监控：1秒后停止搜索
+            console.log('No tickets found, auto-monitor disabled, stopping in 1 second...');
+            setTimeout(async () => {
+              if (trainCodeCleanupRef.current) {
+                trainCodeCleanupRef.current();
+                trainCodeCleanupRef.current = undefined;
+              }
+              if (searchParams) {
+                await stopTrainCodeCrawler(searchParams);
+              }
+              setIsSearching(false);
+            }, 1000);
+          }
+          return;
+        }
+        
+        // 有票时取消监控状态
+        setIsMonitoring(false);
+        setIsNoData(false);
         setTrains(newTickets);
         setLastUpdateTime(new Date());
       });
@@ -166,6 +231,8 @@ export default function App() {
     
     setIsLoading(false);
     setIsSearching(false);
+    setIsMonitoring(false);
+    setIsNoData(false);
   };
 
   const renderContent = () => {
@@ -196,7 +263,9 @@ export default function App() {
               <div className="shadow-2xl backdrop-blur-sm bg-white/95 rounded-lg">
                 <TrainResultsTable 
                   trains={trains} 
-                  isLoading={isLoading} 
+                  isLoading={isLoading}
+                  isMonitoring={isMonitoring}
+                  isNoData={isNoData}
                   searchParams={currentSearchParams}
                   lastUpdateTime={lastUpdateTime}
                 />
@@ -230,6 +299,8 @@ export default function App() {
                 <TrainCodeResultsTable
                   trains={trains}
                   isLoading={isLoading}
+                  isMonitoring={isMonitoring}
+                  isNoData={isNoData}
                   searchParams={currentTrainCodeParams}
                   lastUpdateTime={lastUpdateTime}
                 />

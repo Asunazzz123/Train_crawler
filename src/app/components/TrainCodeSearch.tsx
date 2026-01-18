@@ -46,8 +46,11 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
     const [date, setDate] = useState<Date>();
     const [trainCode, setTrainCode] = useState('');
     const [studentTicket, setStudentTicket] = useState(false);
+    const [autoMonitor, setAutoMonitor] = useState(true); // 默认开启自动监控
     const [askTime, setAskTime] = useState(10);
     const [seatType, setSeatType] = useState('二等座');
+    const [departure, setDeparture] = useState('');
+    const [destination, setDestination] = useState('');
     const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -60,8 +63,11 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
       date: format(date, 'yyyy-MM-dd'),
       trainCode,
       studentTicket,
+      departure,
+      destination,
       askTime,
       seatType,
+      autoMonitor,
     });
   };
   return (
@@ -103,7 +109,28 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
               required
             />
           </div>
-  
+          {/* Departure Station */}
+          <div className="space-y-2">
+            <Label htmlFor="departure">出发站 *</Label>
+            <Input
+              id="departure"
+              placeholder="e.g., 北京"
+              value={departure}
+              onChange={(e) => setDeparture(e.target.value)}
+              required
+            />
+          </div>
+          {/* Destination Station */}
+          <div className="space-y-2">
+            <Label htmlFor="destination">目的地站 *</Label>
+            <Input
+              id="destination"
+              placeholder="e.g., 上海"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              required
+            />
+          </div>
           {/*Ask Time*/}
           <div className="space-y-2">
             <Label htmlFor="askTime">询问间隔 *</Label>
@@ -137,6 +164,20 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
                 学生票
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="autoMonitor"
+                checked={autoMonitor}
+                onCheckedChange={(checked) => setAutoMonitor(checked as boolean)}
+              />
+              <Label
+                htmlFor="autoMonitor"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                无票时自动监控
               </Label>
             </div>
           </div>

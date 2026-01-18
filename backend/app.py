@@ -117,9 +117,9 @@ def push_info():
                             if not data.empty:
                                 # Check if this is a "no data" marker
                                 if len(data) == 1 and data.iloc[0].get('train_code') == '__NO_DATA__':
-                                    # No trains found, send empty array to frontend
-                                    print(f"SSE: No trains found for count={count}, sending empty array")
-                                    yield f"data: []\n\n"
+                                    # No trains found, send special marker to frontend
+                                    print(f"SSE: No trains found for count={count}, sending __NO_DATA__ marker")
+                                    yield f'data: {{"__NO_DATA__": true}}\n\n'
                                     count += 1
                                     continue
                                 
@@ -174,6 +174,141 @@ def push_info():
             raise
         else:
             return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/api/receive_by_code", methods=["GET"])
+def push_info_by_code():
+    try:
+        date_param = request.args.get("date")
+        dep_param = request.args.get("departure")
+        dest_param = request.args.get("destination")
+        train_code_param = request.args.get("trainCode")
+
+        if not date_param or not train_code_param: 
+            return jsonify({"error": "Missing params"}), 400
+
+        item = AskData(
+            date=date_param,
+            departure=dep_param,
+            destination=dest_param,
+            highSpeed=False,
+            studentTicket=request.args.get("studentTicket") == 'true',
+            askTime=int(request.args.get("askTime", 10)),
+            strictmode=False
+        )
+
+        task_key = (item.departure, item.destination, item.date, item.studentTicket, item.highSpeed, item.strictmode)
+        
+        crawler_stop_flags[task_key] = False
+        
+        if task_key not in crawler_tasks or not crawler_tasks[task_key].is_alive():
+            print(f"Starting crawler for {task_key} with interval {item.askTime}s (Train Code Mode)")
+            t = threading.Thread(
+                target=start_polling_storage,
+                args=(item.departure, item.destination, item.date, item.studentTicket, item.highSpeed, item.askTime, item.strictmode, lambda: crawler_stop_flags.get(task_key, False)),
+                daemon=True
+            )
+            t.start()
+            crawler_tasks[task_key] = t
+        else:
+            print(f"Crawler already running for {task_key}. Reusing for Train Code Search.")
+        
+        csv_dir = RESOURCE_DIR / "csv"
+        
+        def generate():
+            count = 1
+            filename = csv_dir / f"train_data_{item.date}_{item.departure}_{item.destination}.csv"
+            last_sent_count = 0
+            wait_count = 0
+            max_wait = 60
+            
+            while not os.path.exists(filename):
+                wait_count += 1
+                if wait_count > max_wait:
+                    yield f"data: {{\"error\": \"Timeout waiting for crawler to start\"}}\n\n"
+                    return
+                yield ": heartbeat\n\n"
+                time.sleep(1)
+            
+            print(f"SSE (TrainCode): File found at {filename}")
+
+            count = 1
+                
+            while True:
+                try:
+                    if not os.path.exists(filename):
+                        yield ": waiting\n\n"
+                        time.sleep(item.askTime)
+                        continue
+
+                    df = pd.read_csv(filename)
+                    if "count" in df.columns and not df.empty:
+                        max_count = int(df["count"].max())
+                        
+                        if max_count >= count:
+                            data = df[df["count"] == count]
+                            
+                            if not data.empty:
+                                if len(data) == 1 and data.iloc[0].get('train_code') == '__NO_DATA__':
+                                    print(f"SSE (TrainCode): No trains found for count={count}, sending __NO_DATA__ marker")
+                                    yield f'data: {{"__NO_DATA__": true}}\n\n'
+                                else:
+                                    filtered_data = data[data['train_code'] == train_code_param]
+                                    
+                                    result = filtered_data.fillna('').to_dict(orient='records')
+                                    for row in result:
+                                        for key, value in row.items():
+                                            if value == '' or (isinstance(value, float) and pd.isna(value)):
+                                                row[key] = None
+                                    
+                                    json_str = json.dumps(result, ensure_ascii=False)
+                                    sse_message = f"data: {json_str}\n\n"
+                                    print(f"SSE (TrainCode): Sending {len(result)} records for count={count} (Train Code: {train_code_param})")
+                                    yield sse_message
+                                
+                                count += 1
+                                continue
+                        
+                        yield ": heartbeat\n\n"
+                    else:
+                        yield ": waiting for data\n\n"
+                    
+                except pd.errors.EmptyDataError:
+                    print("SSE (TrainCode): CSV file is empty, waiting...")
+                    yield ": empty file\n\n"
+                except Exception as e:
+                    print(f"SSE (TrainCode) Error reading CSV: {e}")
+                    yield ": error\n\n"
+                
+                time.sleep(item.askTime)
+
+        return Response(stream_with_context(generate()), mimetype='text/event-stream', headers={'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Content-Type': 'text/event-stream; charset=utf-8'})
+
+    except Exception as e:
+        if switch_mode(mode) == 0:
+            print("ERROR in /api/receive_by_code:", e)
+            raise
+        else:
+            return jsonify({"status": "error", "message": str(e)}), 400
+
+@app.route("/api/stop_train_code", methods=["POST"])
+def stop_crawler_by_code():
+    try:
+        data = request.get_json()
+        departure = data.get("departure")
+        destination = data.get("destination")
+        date = data.get("date")
+        student = data.get("studentTicket", False)
+        high_speed = False
+        strictmode = False
+        
+        task_key = (departure, destination, date, student, high_speed, strictmode)
+        
+        if task_key in crawler_stop_flags:
+            crawler_stop_flags[task_key] = True
+            return jsonify({"status": "success", "message": "Stop signal sent"}), 200
+        return jsonify({"status": "warning", "message": "Crawler not found"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 @app.route("/api/stop", methods=["POST"])
 def stop_crawler():
