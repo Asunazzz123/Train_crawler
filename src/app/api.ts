@@ -1,4 +1,4 @@
-/* api轮询信息，从前端传向后端*/
+/* 车站搜索模式api轮询信息*/
 export interface SearchParams {
   date: string;
   departure: string;
@@ -16,6 +16,24 @@ export interface TrainInfoInput {
   isLoading?: boolean;
   isSearching?: boolean;
 }
+/* 车次号搜索模式api轮询信息*/
+export interface TrainTicketParams{
+  date: string;
+  trainCode: string;
+  studentTicket: boolean;
+  askTime: number;
+}
+export interface TrainTicketInput{
+  onSearch: (params: TrainTicketParams) => void;
+  onStop?: () => void;
+  isLoading?: boolean;
+  isSearching?: boolean;
+}
+
+
+
+
+
 
 export interface TrainTicketHS{
   date:string;
@@ -69,6 +87,107 @@ interface RawTicketData {
 }
 
 const BASE_URL = "http://localhost:5000/api";
+
+// Stop train code crawler API
+export const stopTrainCodeCrawler = async (params: TrainTicketParams): Promise<boolean> => {
+  try {
+    const response = await fetch(`${BASE_URL}/stop_train_code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        trainCode: params.trainCode,
+        date: params.date,
+        studentTicket: params.studentTicket,
+      }),
+    });
+    const data = await response.json();
+    console.log('Stop train code crawler response:', data);
+    return data.status === 'success';
+  } catch (error) {
+    console.error('Error stopping train code crawler:', error);
+    return false;
+  }
+};
+
+// Fetch train info by train code (SSE)
+export const fetchTrainByCode = (params: TrainTicketParams, onData: (tickets: TrainTicket[]) => void) => {
+  const url = new URL(`${BASE_URL}/receive_by_code`);
+  
+  // Append params
+  Object.keys(params).forEach(key => {
+     const value = params[key as keyof TrainTicketParams];
+     if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+     }
+  });
+
+  const eventSource = new EventSource(url.toString());
+
+  console.log('SSE (TrainCode): Connecting to', url.toString());
+
+  eventSource.onopen = () => {
+    console.log('SSE (TrainCode): Connection opened, readyState:', eventSource.readyState);
+  };
+
+  eventSource.onmessage = (event) => {
+    console.log('SSE (TrainCode) onmessage triggered, event.data:', event.data);
+    try {
+      const raw = event.data?.trim();
+      if (!raw) {
+        console.log('SSE (TrainCode): Empty data received');
+        return;
+      }
+      
+      // Check for error message from server
+      if (raw.startsWith('{') && raw.includes('error')) {
+        const errorData = JSON.parse(raw);
+        if (errorData.error) {
+          console.error('Server error:', errorData.error);
+          eventSource.close();
+          return;
+        }
+      }
+      
+      const data: RawTicketData[] = JSON.parse(raw);
+      console.log('SSE (TrainCode): Parsed data array length:', data.length);
+      
+      if (Array.isArray(data)) {
+        if (data.length === 0) {
+          console.log('SSE (TrainCode): Backend returned empty array (no trains found)');
+          onData([]);
+          return;
+        }
+        
+        const tickets = data.flatMap(convertRowToTickets);
+        console.log('SSE (TrainCode): Converted to tickets:', tickets.length);
+        
+        if (tickets.length > 0) {
+          onData(tickets);
+        } else {
+          console.warn('SSE (TrainCode): No tickets after conversion');
+        }
+      }
+    } catch (error) {
+      console.error('SSE (TrainCode): Error parsing train info:', error, 'Raw data:', event.data);
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error('SSE (TrainCode): Error event, readyState:', eventSource.readyState, 'error:', error);
+    if (eventSource.readyState === EventSource.CLOSED) {
+      console.log('SSE (TrainCode): Connection permanently closed');
+    } else if (eventSource.readyState === EventSource.CONNECTING) {
+      console.log('SSE (TrainCode): Reconnecting...');
+    }
+  };
+
+
+  return () => {
+    eventSource.close();
+  };
+};
 
 // Stop crawler API
 export const stopCrawler = async (params: SearchParams): Promise<boolean> => {

@@ -22,10 +22,8 @@ CORS(app, resources={
 })
 mode = "run"
 
-# Keep track of running crawlers to avoid duplicates
-# Key: (departure, destination, date, student, highSpeed, strictmode) -> Thread
+
 crawler_tasks = {}
-# Stop flags for crawlers
 crawler_stop_flags = {}
 
 def switch_mode(mode = "run"):
@@ -42,13 +40,10 @@ def switch_mode(mode = "run"):
 @app.route("/api/receive", methods=["GET"])
 def push_info():
     try:
-        # Parse parameters from query string for GET request or use defaults
         date_param = request.args.get("date")
         dep_param = request.args.get("departure")
         dest_param = request.args.get("destination")
-        
-        # If params missing, maybe try json if available? But GET usually no body.
-        # Minimal validation
+
         if not date_param: 
              return jsonify({"error": "Missing params"}), 400
 

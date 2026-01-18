@@ -1,5 +1,8 @@
 LOG_DIR := log
 
+
+build:
+	@npm run build
 ifeq ($(OS),Windows_NT)
 
 run:
@@ -7,13 +10,14 @@ run:
 
 kill:
 	@powershell -NoProfile -File scripts/kill.ps1
+
 else
-SHELL := /bin/sh
+SHELL := /bin/bash
 
 run:
 	@mkdir -p "$(LOG_DIR)"
-	@npm run dev > "$(LOG_DIR)/frontend.log" 2>&1 & echo $$! > "$(LOG_DIR)/frontend.pid"
-	@. "$$(conda info --base)/etc/profile.d/conda.sh" && conda activate dl && python "backend/app.py" > "$(LOG_DIR)/backend.log" 2>&1 & echo $$! > "$(LOG_DIR)/backend.pid"
+	@NO_COLOR=1 npm run dev > "$(LOG_DIR)/frontend.log" 2>&1 & echo $$! > "$(LOG_DIR)/frontend.pid"
+	@. "$$(conda info --base)/etc/profile.d/conda.sh" && conda activate dl && NO_COLOR=1 python "backend/app.py" > "$(LOG_DIR)/backend.log" 2>&1 & echo $$! > "$(LOG_DIR)/backend.pid"
 
 kill:
 	@if [ -f "$(LOG_DIR)/frontend.pid" ]; then kill $$(cat "$(LOG_DIR)/frontend.pid") 2>/dev/null || true; rm -f "$(LOG_DIR)/frontend.pid"; fi
