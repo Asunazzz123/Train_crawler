@@ -22,6 +22,7 @@ export interface TrainTicketParams{
   trainCode: string;
   studentTicket: boolean;
   askTime: number;
+  seatType?: string;
 }
 export interface TrainTicketInput{
   onSearch: (params: TrainTicketParams) => void;

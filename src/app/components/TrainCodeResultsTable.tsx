@@ -9,13 +9,13 @@ import {
 } from '@/app/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { SearchParams, TrainTicket } from '../api';
+import { TrainTicket, TrainTicketParams } from '../api';
 import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 
-interface TrainResultsTableProps {
+interface TrainCodeResultsTableProps {
   trains: TrainTicket[];
   isLoading?: boolean;
-  searchParams?: SearchParams;
+  searchParams?: TrainTicketParams;
   lastUpdateTime?: Date | null;
 }
 
@@ -40,18 +40,6 @@ const getAvailabilityColor = (available: number | string) => {
     return 'text-red-600';
 }
 
-// 坐席类型映射（英文key到中文显示名）
-const seatTypeMap: Record<string, string> = {
-  'secondClass': '二等座',
-  'firstClass': '一等座',
-  'specialClass': '特等座',
-  'businessClass': '商务座',
-  'softSleeper': '软卧',
-  'hardSleeper': '硬卧',
-  'hardSeat': '硬座',
-  'noSeat': '无座',
-};
-
 // 按车次号分组数据
 function groupTrainsByNumber(trains: TrainTicket[], selectedSeatType?: string): GroupedTrainData[] {
   const groupMap = new Map<string, TrainTicket[]>();
@@ -63,22 +51,17 @@ function groupTrainsByNumber(trains: TrainTicket[], selectedSeatType?: string): 
     groupMap.set(train.trainNumber, existing);
   });
   
-  // 将选择的坐席类型转换为中文（如果是英文key）
-  const normalizedSeatType = selectedSeatType 
-    ? (seatTypeMap[selectedSeatType] || selectedSeatType)
-    : undefined;
-  
   // 转换为GroupedTrainData数组
   const result: GroupedTrainData[] = [];
   groupMap.forEach((tickets, trainNumber) => {
     // 查找选定坐席等级的票
-    const primaryTicket = normalizedSeatType 
-      ? tickets.find(t => t.seatType === normalizedSeatType) || null
+    const primaryTicket = selectedSeatType 
+      ? tickets.find(t => t.seatType === selectedSeatType) || null
       : tickets[0] || null;
     
     // 其他坐席等级的票
-    const otherTickets = normalizedSeatType
-      ? tickets.filter(t => t.seatType !== normalizedSeatType)
+    const otherTickets = selectedSeatType
+      ? tickets.filter(t => t.seatType !== selectedSeatType)
       : tickets.slice(1);
     
     result.push({
@@ -93,7 +76,7 @@ function groupTrainsByNumber(trains: TrainTicket[], selectedSeatType?: string): 
 }
 
 // 折叠行组件 - 返回多个 TableRow 元素
-function CollapsibleTrainRow({ group, isHighSpeed }: { group: GroupedTrainData; isHighSpeed: boolean }) {
+function CollapsibleTrainRow({ group }: { group: GroupedTrainData }) {
   const [isOpen, setIsOpen] = useState(false);
   const hasOtherTickets = group.otherTickets.length > 0;
   
@@ -126,10 +109,9 @@ function CollapsibleTrainRow({ group, isHighSpeed }: { group: GroupedTrainData; 
                 )}
               </button>
             )}
-            {!hasOtherTickets && <span className="w-6" />}
             <Badge 
               variant="outline" 
-              className={!isHighSpeed && displayTicket.hs === 'y' ? 'text-red-600 border-red-600' : ''}
+              className={displayTicket.hs === 'y' ? 'text-red-600 border-red-600' : ''}
             >
               {displayTicket.trainNumber}
             </Badge>
@@ -187,21 +169,19 @@ function CollapsibleTrainRow({ group, isHighSpeed }: { group: GroupedTrainData; 
   );
 }
 
-export function TrainResultsTable({ trains, isLoading, searchParams, lastUpdateTime }: TrainResultsTableProps) {
+export function TrainCodeResultsTable({ trains, isLoading, searchParams, lastUpdateTime }: TrainCodeResultsTableProps) {
   const askTime = searchParams?.askTime || 10;
-  const isHighSpeed = searchParams?.highSpeed || false;
-  const seatType = searchParams?.seatType || '';
-  
-  // 普速列车专属坐席类型
-  const regularTrainOnlySeatTypes = ['软卧', '硬卧', '硬座', 'softSleeper', 'hardSleeper', 'hardSeat'];
-  
-  // 过滤逻辑：当isHighSpeed为false且选择普速专属坐席时，只显示普速列车(hs='n')
-  const filteredTrains = (!isHighSpeed && regularTrainOnlySeatTypes.includes(seatType))
-    ? trains.filter(train => train.hs === 'n')
-    : trains;
+  const selectedSeatType = searchParams?.seatType;
   
   // 按车次号分组
-  const groupedTrains = groupTrainsByNumber(filteredTrains, seatType);
+  const groupedTrains = groupTrainsByNumber(trains, selectedSeatType);
+  
+  // 调试日志
+  console.log('TrainCodeResultsTable - trains:', trains.length, 'groupedTrains:', groupedTrains.length);
+  console.log('TrainCodeResultsTable - selectedSeatType:', selectedSeatType);
+  groupedTrains.forEach(g => {
+    console.log(`  ${g.trainNumber}: primary=${g.primaryTicket?.seatType}, others=${g.otherTickets.length}`);
+  });
   
   // Format time for display
   const formatTime = (date: Date) => {
@@ -212,16 +192,13 @@ export function TrainResultsTable({ trains, isLoading, searchParams, lastUpdateT
     });
   };
 
-  // 获取中文坐席名称用于显示
-  const displaySeatType = seatType ? (seatTypeMap[seatType] || seatType) : '';
-
   if (isLoading) {
     return (
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-center py-8">
             <RefreshCw className="h-5 w-5 animate-spin mr-2 text-muted-foreground" />
-            <div className="text-muted-foreground">正在搜索车次...</div>
+            <div className="text-muted-foreground">正在搜索车次信息...</div>
           </div>
         </CardContent>
       </Card>
@@ -249,8 +226,8 @@ export function TrainResultsTable({ trains, isLoading, searchParams, lastUpdateT
           <div>
             <CardTitle>车次查询结果</CardTitle>
             <CardDescription>
-              找到 {groupedTrains.length} 个车次，共 {filteredTrains.length} 种票型
-              {displaySeatType && <span className="ml-2">（优先显示: {displaySeatType}）</span>}
+              找到 {groupedTrains.length} 个车次，共 {trains.length} 种票型
+              {selectedSeatType && <span className="ml-2">（优先显示: {selectedSeatType}）</span>}
             </CardDescription>
           </div>
           <div className="text-right text-sm text-muted-foreground">
@@ -268,6 +245,8 @@ export function TrainResultsTable({ trains, isLoading, searchParams, lastUpdateT
       </CardHeader>
       
       <CardContent>
+        {/* 调试标识 - 确认组件已加载 */}
+        <div className="mb-2 text-xs text-blue-500">TrainCodeResultsTable v2 - 分组数: {groupedTrains.length}</div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -286,7 +265,6 @@ export function TrainResultsTable({ trains, isLoading, searchParams, lastUpdateT
                 <CollapsibleTrainRow 
                   key={group.trainNumber} 
                   group={group}
-                  isHighSpeed={isHighSpeed}
                 />
               ))}
             </TableBody>

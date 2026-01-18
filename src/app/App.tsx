@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { TrainSearchForm } from '@/app/components/TrainSearchForm';
 import { TrainSearchForm as TrainCodeSearch } from '@/app/components/TrainCodeSearch';
 import { TrainResultsTable } from '@/app/components/TrainResultsTable';
+import { TrainCodeResultsTable } from '@/app/components/TrainCodeResultsTable';
 import { fetchTrainInfo, stopCrawler, fetchTrainByCode, stopTrainCodeCrawler, TrainTicket, SearchParams, TrainTicketParams } from './api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Train } from 'lucide-react';
@@ -226,9 +227,10 @@ export default function App() {
             {/* Results Table */}
             {hasSearched && (
               <div className="shadow-2xl backdrop-blur-sm bg-white/95 rounded-lg">
-                <TrainResultsTable
+                <TrainCodeResultsTable
                   trains={trains}
                   isLoading={isLoading}
+                  searchParams={currentTrainCodeParams}
                   lastUpdateTime={lastUpdateTime}
                 />
               </div>

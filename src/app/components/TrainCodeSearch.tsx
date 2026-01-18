@@ -7,9 +7,39 @@ import { Calendar } from '@/app/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
 import { CalendarIcon, Search, StopCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { TrainTicketInput } from '../api';
+import { TrainTicketInput, TicketKind } from '../api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/app/components/ui/tooltip';
+
+// 坐席等级选择组件
+function SeatTypeSelector({ onSeatChange, isLoading }: TicketKind): JSX.Element {
+  const [kind, setKind] = useState('二等座');
+
+  const handleValueChange = (value: string) => {
+    setKind(value);
+    onSeatChange(value);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="seatKind">坐席等级</Label>
+      <Select value={kind} onValueChange={handleValueChange} disabled={isLoading}>
+        <SelectTrigger id="seatKind">
+          <SelectValue placeholder="选择坐席等级" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="二等座">二等座</SelectItem>
+          <SelectItem value="一等座">一等座</SelectItem>
+          <SelectItem value="特等座">特等座</SelectItem>
+          <SelectItem value="商务座">商务座</SelectItem>
+          <SelectItem value="软卧">软卧</SelectItem>
+          <SelectItem value="硬卧">硬卧</SelectItem>
+          <SelectItem value="硬座">硬座</SelectItem>
+          <SelectItem value="无座">无座</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 
 export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: TrainTicketInput) {
@@ -17,6 +47,7 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
     const [trainCode, setTrainCode] = useState('');
     const [studentTicket, setStudentTicket] = useState(false);
     const [askTime, setAskTime] = useState(10);
+    const [seatType, setSeatType] = useState('二等座');
     const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -30,6 +61,7 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
       trainCode,
       studentTicket,
       askTime,
+      seatType,
     });
   };
   return (
@@ -88,6 +120,9 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
               </SelectContent>
             </Select>
           </div>
+
+          {/* Seat Type Selection */}
+          <SeatTypeSelector onSeatChange={setSeatType} isLoading={isLoading} />
 
           
   
