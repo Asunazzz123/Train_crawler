@@ -37,9 +37,6 @@ export interface TrainTicketInput{
 
 
 
-
-
-
 export interface TrainTicketHS{
   date:string;
   trainCode: string;
@@ -91,7 +88,7 @@ interface RawTicketData {
   no_seat?: string;
 }
 
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "http://127.0.0.1:5001/api";
 
 // Stop train code crawler API
 export const stopTrainCodeCrawler = async (params: TrainTicketParams): Promise<boolean> => {

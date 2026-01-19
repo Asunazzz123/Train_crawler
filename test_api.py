@@ -1,7 +1,7 @@
 import requests
 import json
 
-url = "http://localhost:5000/api/receive_by_code"
+url = "http://127.0.0.1:5001/api/receive_by_code"
 params = {
     "date": "2026-01-19",
     "departure": "光明城",
