@@ -9,7 +9,7 @@ import { CalendarIcon, Search, StopCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { TrainTicketInput, TicketKind } from '../api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/app/components/ui/tooltip';
 // 坐席等级选择组件
 function SeatTypeSelector({ onSeatChange, isLoading }: TicketKind): JSX.Element {
   const [kind, setKind] = useState('二等座');
@@ -168,18 +168,28 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
             </div>
 
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id="autoMonitor"
-                checked={autoMonitor}
-                onCheckedChange={(checked) => setAutoMonitor(checked as boolean)}
-              />
-              <Label
-                htmlFor="autoMonitor"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                无票时自动监控
-              </Label>
-            </div>
+            <Checkbox
+              id="autoMonitor"
+              checked={autoMonitor}
+              onCheckedChange={(checked) => setAutoMonitor(checked as boolean)}
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">
+                  <Label
+                    htmlFor="autoMonitor"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    无票时自动监控
+                  </Label>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>启用后，当无票时，系统将自动监控余票情况，直至有票为止。</p>
+              </TooltipContent>
+            </Tooltip>
+            
+          </div>
           </div>
         
   

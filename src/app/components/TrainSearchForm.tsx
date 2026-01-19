@@ -222,12 +222,22 @@ export function TrainSearchForm({ onSearch, onStop, isLoading, isSearching }: Tr
               checked={autoMonitor}
               onCheckedChange={(checked) => setAutoMonitor(checked as boolean)}
             />
-            <Label
-              htmlFor="autoMonitor"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              无票时自动监控
-            </Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">
+                  <Label
+                    htmlFor="autoMonitor"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    无票时自动监控
+                  </Label>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>启用后，当无票时，系统将自动监控余票情况，直至有票为止。</p>
+              </TooltipContent>
+            </Tooltip>
+            
           </div>
         </div>
       </div>
