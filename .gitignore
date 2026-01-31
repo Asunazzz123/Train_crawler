@@ -4,3 +4,7 @@ log/
 __pycache__/
 remark.md
 resource/csv/
+backend/__pycache__/
+backend/transit-routing-engine/CMakeLists.txt
+backend/transit-routing-engine/out/
+backend/transit-routing-engine/.vs
